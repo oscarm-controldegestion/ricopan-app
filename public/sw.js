@@ -1,6 +1,6 @@
 // Service Worker - Ricopan
 // Versión: se actualiza con cada deploy
-const CACHE_VERSION = 'ricopan-v3';
+const CACHE_VERSION = 'ricopan-v5';
 const CACHE_NAME = CACHE_VERSION;
 
 // Al instalar: toma control inmediatamente
