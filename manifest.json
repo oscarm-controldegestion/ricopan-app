@@ -2,35 +2,35 @@
   "name": "Ricopan Control de Compras",
   "short_name": "Ricopan",
   "description": "Sistema de gestión de pedidos y facturas Ricopan",
-  "start_url": "/ricopan-app/#/",
+  "start_url": "/ricopan-control-de-compras/#/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#b41e1e",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/ricopan-app/icon-120.png",
+      "src": "/ricopan-control-de-compras/icon-120.png",
       "sizes": "120x120",
       "type": "image/png"
     },
     {
-      "src": "/ricopan-app/icon-152.png",
+      "src": "/ricopan-control-de-compras/icon-152.png",
       "sizes": "152x152",
       "type": "image/png"
     },
     {
-      "src": "/ricopan-app/icon-180.png",
+      "src": "/ricopan-control-de-compras/icon-180.png",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "/ricopan-app/icon-192.png",
+      "src": "/ricopan-control-de-compras/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/ricopan-app/icon-512.png",
+      "src": "/ricopan-control-de-compras/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
