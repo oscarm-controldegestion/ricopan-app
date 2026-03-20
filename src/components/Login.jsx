@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState(''); // email o loginId
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,9 +15,24 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      let authEmail = identifier.trim();
+
+      // Si no tiene "@", es un loginId — buscamos el authEmail en Firestore
+      if (!authEmail.includes('@')) {
+        const q = query(collection(db, 'usuarios'), where('loginId', '==', authEmail));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          setError('ID de usuario no encontrado. Verifica e intenta nuevamente.');
+          setLoading(false);
+          return;
+        }
+        const userData = snap.docs[0].data();
+        authEmail = userData.authEmail || `${authEmail}@ricopan.interno`;
+      }
+
+      await login(authEmail, password);
     } catch (err) {
-      setError('Correo o contraseña incorrectos. Intenta nuevamente.');
+      setError('Correo/ID o contraseña incorrectos. Intenta nuevamente.');
       console.error(err);
     }
     setLoading(false);
@@ -63,14 +80,14 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
-              Correo electrónico
+              Correo electrónico o ID de usuario
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              type="text"
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
               required
-              placeholder="correo@ejemplo.com"
+              placeholder="correo@ejemplo.com o mi.usuario"
               style={{
                 width: '100%', padding: '12px', border: '2px solid #e5e7eb',
                 borderRadius: '8px', fontSize: '15px', outline: 'none',

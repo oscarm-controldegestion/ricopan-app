@@ -8,7 +8,8 @@ export default function UsuariosManager() {
   const [locales, setLocales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ nombre: '', email: '', password: '', rol: 'atendedora', local: '' });
+  const [tipoAcceso, setTipoAcceso] = useState('email'); // 'email' | 'id'
+  const [form, setForm] = useState({ nombre: '', email: '', loginId: '', password: '', rol: 'atendedora', local: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
@@ -29,26 +30,42 @@ export default function UsuariosManager() {
   async function crearUsuario(e) {
     e.preventDefault();
     setError(''); setOk('');
-    if (!form.email || !form.password || !form.nombre) { setError('Completa todos los campos'); return; }
+
+    const nombre = form.nombre.trim();
+    const password = form.password.trim();
+    const loginId = form.loginId.trim();
+    const email = form.email.trim();
+
+    if (!nombre || !password) { setError('Completa todos los campos obligatorios'); return; }
+    if (tipoAcceso === 'email' && !email) { setError('Ingresa el correo electrónico'); return; }
+    if (tipoAcceso === 'id' && !loginId) { setError('Ingresa el ID de usuario'); return; }
+    if (loginId && /\s/.test(loginId)) { setError('El ID no puede tener espacios'); return; }
     if (form.rol === 'atendedora' && !form.local) { setError('Selecciona el local'); return; }
+
+    // Si es sin correo, construimos un email sintético interno
+    const authEmail = tipoAcceso === 'email' ? email : `${loginId.toLowerCase()}@ricopan.interno`;
+
     setSaving(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      const cred = await createUserWithEmailAndPassword(auth, authEmail, password);
       await setDoc(doc(db, 'usuarios', cred.user.uid), {
-        nombre: form.nombre,
-        email: form.email,
+        nombre,
+        email: tipoAcceso === 'email' ? email : '',
+        loginId: tipoAcceso === 'id' ? loginId : '',
+        authEmail,
         rol: form.rol,
         local: form.rol === 'atendedora' ? form.local : 'Todos',
         creadoEn: Timestamp.now(),
         activo: true,
       });
-      setOk(`✅ Usuario ${form.nombre} creado exitosamente.`);
+      setOk(`✅ Usuario ${nombre} creado exitosamente.`);
       setShowForm(false);
-      setForm({ nombre: '', email: '', password: '', rol: 'atendedora', local: '' });
+      setForm({ nombre: '', email: '', loginId: '', password: '', rol: 'atendedora', local: '' });
+      setTipoAcceso('email');
       cargarDatos();
     } catch (e) {
       console.error(e);
-      if (e.code === 'auth/email-already-in-use') setError('Este correo ya está registrado.');
+      if (e.code === 'auth/email-already-in-use') setError('Este correo o ID ya está registrado.');
       else if (e.code === 'auth/weak-password') setError('La contraseña debe tener al menos 6 caracteres.');
       else setError('Error al crear usuario: ' + e.message);
     }
@@ -77,7 +94,47 @@ export default function UsuariosManager() {
       {showForm && (
         <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', marginBottom: '20px', border: '2px solid #1d4ed8' }}>
           <h2 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 18px' }}>Crear nuevo usuario</h2>
+
+          {/* Selector tipo de acceso */}
+          <div style={{ marginBottom: '18px' }}>
+            <label style={labelStyle}>Tipo de acceso *</label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setTipoAcceso('email')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: '600',
+                  border: tipoAcceso === 'email' ? '2px solid #1d4ed8' : '2px solid #e5e7eb',
+                  background: tipoAcceso === 'email' ? '#eff6ff' : '#f9fafb',
+                  color: tipoAcceso === 'email' ? '#1d4ed8' : '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                📧 Con correo electrónico
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoAcceso('id')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: '600',
+                  border: tipoAcceso === 'id' ? '2px solid #7c3aed' : '2px solid #e5e7eb',
+                  background: tipoAcceso === 'id' ? '#f5f3ff' : '#f9fafb',
+                  color: tipoAcceso === 'id' ? '#7c3aed' : '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                🪪 Con ID (sin correo)
+              </button>
+            </div>
+            {tipoAcceso === 'id' && (
+              <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#6b7280' }}>
+                El usuario ingresará con su ID y contraseña en lugar de correo electrónico.
+              </p>
+            )}
+          </div>
+
           {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '8px', marginBottom: '14px', fontSize: '14px' }}>{error}</div>}
+
           <form onSubmit={crearUsuario}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
               <div>
@@ -92,16 +149,32 @@ export default function UsuariosManager() {
                 </select>
               </div>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-              <div>
-                <label style={labelStyle}>Correo electrónico *</label>
-                <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required placeholder="correo@ejemplo.com" style={inputStyle} />
-              </div>
+              {tipoAcceso === 'email' ? (
+                <div>
+                  <label style={labelStyle}>Correo electrónico *</label>
+                  <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required={tipoAcceso === 'email'} placeholder="correo@ejemplo.com" style={inputStyle} />
+                </div>
+              ) : (
+                <div>
+                  <label style={labelStyle}>ID de usuario *</label>
+                  <input
+                    type="text"
+                    value={form.loginId}
+                    onChange={e => setForm(p => ({ ...p, loginId: e.target.value.replace(/\s/g, '') }))}
+                    required={tipoAcceso === 'id'}
+                    placeholder="Ej: maria.gonzalez"
+                    style={inputStyle}
+                  />
+                </div>
+              )}
               <div>
                 <label style={labelStyle}>Contraseña *</label>
                 <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required placeholder="Mínimo 6 caracteres" style={inputStyle} />
               </div>
             </div>
+
             {form.rol === 'atendedora' && (
               <div style={{ marginBottom: '14px' }}>
                 <label style={labelStyle}>Local asignado *</label>
@@ -111,6 +184,7 @@ export default function UsuariosManager() {
                 </select>
               </div>
             )}
+
             <div style={{ display: 'flex', gap: '12px' }}>
               <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, padding: '11px', background: '#f3f4f6', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Cancelar</button>
               <button type="submit" disabled={saving} style={{ flex: 2, padding: '11px', background: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
@@ -136,7 +210,11 @@ export default function UsuariosManager() {
                   </span>
                 </div>
                 <p style={{ margin: '3px 0 0 30px', fontSize: '13px', color: '#6b7280' }}>
-                  {u.email} {u.local && u.local !== 'Todos' ? `· 🏪 ${u.local}` : ''}
+                  {u.loginId
+                    ? <span>🪪 ID: <strong>{u.loginId}</strong></span>
+                    : u.email || u.authEmail
+                  }
+                  {u.local && u.local !== 'Todos' ? ` · 🏪 ${u.local}` : ''}
                 </p>
               </div>
               <button

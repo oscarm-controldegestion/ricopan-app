@@ -27,10 +27,10 @@ body {
 
 /* Bottom nav oculto en desktop, visible en móvil */
 .bottom-nav {
-  display: none;
+  display: none !important;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .sidebar-desktop {
     display: none !important;
   }

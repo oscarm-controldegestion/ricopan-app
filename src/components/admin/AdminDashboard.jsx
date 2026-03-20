@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Link } from 'react-router-dom';
 import { format, startOfDay, endOfDay } from 'date-fns';
@@ -10,7 +10,13 @@ export default function AdminDashboard() {
   const [resumenPorLocal, setResumenPorLocal] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Pedidos por fecha de entrega
+  const [fechaEntrega, setFechaEntrega] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [pedidosPorEntrega, setPedidosPorEntrega] = useState([]);
+  const [loadingEntrega, setLoadingEntrega] = useState(false);
+
   useEffect(() => { cargarDatos(); }, []);
+  useEffect(() => { cargarPedidosPorEntrega(); }, [fechaEntrega]);
 
   async function cargarDatos() {
     setLoading(true);
@@ -35,7 +41,6 @@ export default function AdminDashboard() {
       ));
       const facturasPend = snapFacturas.docs.map(d => d.data());
 
-      // Resumen por local
       const resumPorLocal = locales.map(local => {
         const pedLocal = pedidosHoy.filter(p => p.local === local.nombre);
         const factLocal = facturasPend.filter(f => f.local === local.nombre);
@@ -61,6 +66,33 @@ export default function AdminDashboard() {
     }
     setLoading(false);
   }
+
+  async function cargarPedidosPorEntrega() {
+    setLoadingEntrega(true);
+    try {
+      const q = query(
+        collection(db, 'pedidos'),
+        where('fechaEntrega', '==', fechaEntrega)
+      );
+      const snap = await getDocs(q);
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Ordenar por local para agrupar
+      lista.sort((a, b) => (a.local || '').localeCompare(b.local || ''));
+      setPedidosPorEntrega(lista);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingEntrega(false);
+  }
+
+  // Agrupar pedidos por local
+  const pedidosPorLocal = pedidosPorEntrega.reduce((acc, p) => {
+    if (!acc[p.local]) acc[p.local] = [];
+    acc[p.local].push(p);
+    return acc;
+  }, {});
+
+  const totalEntrega = pedidosPorEntrega.reduce((s, p) => s + (Number(p.monto) || 0), 0);
 
   return (
     <div>
@@ -107,7 +139,100 @@ export default function AdminDashboard() {
             </Link>
           </div>
 
-          {/* Resumen por local */}
+          {/* ===== PEDIDOS POR FECHA DE ENTREGA ===== */}
+          <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#374151', margin: 0 }}>
+                🚚 Pedidos por fecha de entrega
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#6b7280' }}>Fecha:</label>
+                <input
+                  type="date"
+                  value={fechaEntrega}
+                  onChange={e => setFechaEntrega(e.target.value)}
+                  style={{ padding: '7px 12px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+            </div>
+
+            {loadingEntrega ? (
+              <p style={{ color: '#9ca3af', textAlign: 'center', padding: '20px' }}>Cargando...</p>
+            ) : pedidosPorEntrega.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '28px', background: '#f9fafb', borderRadius: '8px' }}>
+                <p style={{ fontSize: '32px', margin: '0 0 8px' }}>📭</p>
+                <p style={{ color: '#9ca3af', margin: 0, fontSize: '14px' }}>
+                  Sin pedidos con entrega para el{' '}
+                  {format(new Date(fechaEntrega + 'T00:00:00'), "d 'de' MMMM", { locale: es })}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Resumen total */}
+                <div style={{
+                  background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px',
+                  padding: '10px 16px', marginBottom: '16px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}>
+                  <span style={{ color: '#92400e', fontSize: '14px', fontWeight: '600' }}>
+                    📦 {pedidosPorEntrega.length} pedido(s) — {Object.keys(pedidosPorLocal).length} local(es)
+                  </span>
+                  <span style={{ color: '#92400e', fontSize: '16px', fontWeight: '800' }}>
+                    Total: ${totalEntrega.toLocaleString('es-CL')}
+                  </span>
+                </div>
+
+                {/* Pedidos agrupados por local */}
+                {Object.entries(pedidosPorLocal).map(([localNombre, pedidos]) => {
+                  const subtotal = pedidos.reduce((s, p) => s + (Number(p.monto) || 0), 0);
+                  return (
+                    <div key={localNombre} style={{ marginBottom: '16px' }}>
+                      <div style={{
+                        background: '#f9fafb', padding: '8px 14px', borderRadius: '6px 6px 0 0',
+                        borderBottom: '2px solid #e5e7eb', display: 'flex', justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontWeight: '700', fontSize: '14px', color: '#374151' }}>
+                          🏪 {localNombre}
+                        </span>
+                        <span style={{ fontWeight: '700', fontSize: '14px', color: '#059669' }}>
+                          ${subtotal.toLocaleString('es-CL')}
+                        </span>
+                      </div>
+                      <div style={{ border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 6px 6px', overflow: 'hidden' }}>
+                        {pedidos.map((p, idx) => (
+                          <div key={p.id} style={{
+                            padding: '10px 14px',
+                            borderBottom: idx < pedidos.length - 1 ? '1px solid #f3f4f6' : 'none',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            background: idx % 2 === 0 ? 'white' : '#fafafa',
+                          }}>
+                            <div>
+                              <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{p.proveedor}</span>
+                              {p.observaciones && (
+                                <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px', fontStyle: 'italic' }}>
+                                  {p.observaciones}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ fontWeight: '700', color: '#b41e1e', fontSize: '15px' }}>
+                                ${Number(p.monto).toLocaleString('es-CL')}
+                              </span>
+                              <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                                {p.registradoPor || ''}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+
+          {/* Resumen por local (hoy) */}
           <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
             <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#374151', margin: '0 0 16px' }}>Resumen de hoy por local</h2>
             {resumenPorLocal.length === 0 ? (

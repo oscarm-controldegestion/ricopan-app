@@ -25,9 +25,17 @@ function FacturaCard({ factura, onUpdate }) {
   const fileRef = useRef();
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showNCForm, setShowNCForm] = useState(false);
+  const [ncForm, setNcForm] = useState({
+    numero: '',
+    fecha: format(new Date(), 'yyyy-MM-dd'),
+    monto: factura.saldoPendiente > 0 ? String(factura.saldoPendiente) : '',
+  });
+  const [savingNC, setSavingNC] = useState(false);
   const { userProfile } = useAuth();
 
   const badge = BADGE[factura.estado] || { label: factura.estado, color: '#374151', bg: '#f3f4f6', border: '#9ca3af' };
+  const saldo = Number(factura.saldoPendiente) || 0;
 
   async function handleComprobante(e) {
     const file = e.target.files[0];
@@ -50,6 +58,30 @@ function FacturaCard({ factura, onUpdate }) {
   async function cambiarEstado(nuevoEstado) {
     await updateDoc(doc(db, 'facturas', factura.id), { estado: nuevoEstado });
     onUpdate();
+  }
+
+  async function registrarNC(e) {
+    e.preventDefault();
+    if (!ncForm.numero || !ncForm.fecha || !ncForm.monto) return;
+    setSavingNC(true);
+    try {
+      await updateDoc(doc(db, 'facturas', factura.id), {
+        notaCredito: {
+          numero: ncForm.numero,
+          fecha: ncForm.fecha,
+          monto: Number(ncForm.monto),
+          registradoEn: Timestamp.now(),
+          registradoPor: userProfile?.nombre || '',
+        },
+        estado: 'completada',
+        saldoPendiente: 0,
+      });
+      setShowNCForm(false);
+      onUpdate();
+    } catch (e) {
+      console.error(e);
+    }
+    setSavingNC(false);
   }
 
   return (
@@ -75,6 +107,18 @@ function FacturaCard({ factura, onUpdate }) {
             {factura.numeroFactura && `Fact. N°: ${factura.numeroFactura} · `}
             Recibida: {factura.fechaRecepcion ? format(new Date(factura.fechaRecepcion + 'T00:00:00'), "dd MMM yyyy", { locale: es }) : '-'}
           </div>
+          {/* Saldo pendiente badge visible en la cabecera */}
+          {saldo > 0 && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              marginTop: '6px', background: '#fff7ed', border: '1px solid #fed7aa',
+              borderRadius: '8px', padding: '4px 10px',
+            }}>
+              <span style={{ fontSize: '12px', color: '#92400e', fontWeight: '700' }}>
+                ⚠️ Saldo pendiente NC: ${saldo.toLocaleString('es-CL')}
+              </span>
+            </div>
+          )}
         </div>
         <div style={{ textAlign: 'right', marginLeft: '12px' }}>
           <div style={{ fontWeight: '800', fontSize: '18px', color: '#111827' }}>${Number(factura.monto).toLocaleString('es-CL')}</div>
@@ -88,6 +132,38 @@ function FacturaCard({ factura, onUpdate }) {
             <p style={{ color: '#6b7280', fontSize: '13px', margin: '12px 0 10px', fontStyle: 'italic' }}>
               💬 {factura.observaciones}
             </p>
+          )}
+
+          {/* Detalle saldo/pedido vinculado */}
+          {factura.pedidoId && (
+            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: '#0369a1', fontWeight: '600' }}>
+                🔗 Pedido vinculado — Monto: ${Number(factura.montoPedido || 0).toLocaleString('es-CL')}
+              </p>
+              {saldo > 0 && (
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#92400e', fontWeight: '700' }}>
+                  ⚠️ Saldo pendiente de NC: ${saldo.toLocaleString('es-CL')}
+                  &nbsp;(Factura: ${Number(factura.monto).toLocaleString('es-CL')} / Pedido: ${Number(factura.montoPedido || 0).toLocaleString('es-CL')})
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Nota de crédito ya registrada */}
+          {factura.notaCredito && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px' }}>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#065f46' }}>📝 Nota de Crédito registrada</p>
+              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#374151' }}>
+                N° {factura.notaCredito.numero} · {factura.notaCredito.fecha
+                  ? format(new Date(factura.notaCredito.fecha + 'T00:00:00'), "dd MMM yyyy", { locale: es })
+                  : '-'} · ${Number(factura.notaCredito.monto).toLocaleString('es-CL')}
+              </p>
+              {factura.notaCredito.registradoPor && (
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+                  Por: {factura.notaCredito.registradoPor}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Foto factura */}
@@ -127,6 +203,84 @@ function FacturaCard({ factura, onUpdate }) {
               >
                 {uploading ? 'Subiendo...' : '📎 Subir comprobante de pago'}
               </button>
+            </div>
+          )}
+
+          {/* Botón registrar NC */}
+          {factura.estado === 'pendiente_nc' && !factura.notaCredito && !showNCForm && (
+            <div style={{ marginBottom: '12px' }}>
+              <button
+                onClick={() => setShowNCForm(true)}
+                style={{
+                  padding: '10px 18px', background: '#1e40af',
+                  color: 'white', border: 'none', borderRadius: '8px',
+                  cursor: 'pointer', fontSize: '14px', fontWeight: '600',
+                }}
+              >
+                📝 Registrar Nota de Crédito
+              </button>
+            </div>
+          )}
+
+          {/* Formulario NC inline */}
+          {showNCForm && (
+            <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: '10px', padding: '16px', marginBottom: '12px' }}>
+              <p style={{ margin: '0 0 12px', fontWeight: '700', color: '#1e40af', fontSize: '14px' }}>📝 Registrar Nota de Crédito</p>
+              <form onSubmit={registrarNC}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>N° Nota de Crédito *</label>
+                    <input
+                      type="text"
+                      value={ncForm.numero}
+                      onChange={e => setNcForm(p => ({ ...p, numero: e.target.value }))}
+                      placeholder="Ej: NC-001"
+                      required
+                      style={{ width: '100%', padding: '8px 10px', border: '2px solid #e5e7eb', borderRadius: '7px', fontSize: '14px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Fecha NC *</label>
+                    <input
+                      type="date"
+                      value={ncForm.fecha}
+                      onChange={e => setNcForm(p => ({ ...p, fecha: e.target.value }))}
+                      required
+                      style={{ width: '100%', padding: '8px 10px', border: '2px solid #e5e7eb', borderRadius: '7px', fontSize: '14px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Monto NC * {saldo > 0 && <span style={{ color: '#92400e' }}>(saldo pendiente: ${saldo.toLocaleString('es-CL')})</span>}
+                  </label>
+                  <input
+                    type="number"
+                    value={ncForm.monto}
+                    onChange={e => setNcForm(p => ({ ...p, monto: e.target.value }))}
+                    placeholder="0"
+                    required
+                    min="1"
+                    style={{ width: '100%', padding: '8px 10px', border: '2px solid #e5e7eb', borderRadius: '7px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowNCForm(false)}
+                    style={{ flex: 1, padding: '9px', background: '#f3f4f6', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingNC}
+                    style={{ flex: 2, padding: '9px', background: savingNC ? '#ccc' : '#1e40af', color: 'white', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: '700', cursor: savingNC ? 'not-allowed' : 'pointer' }}
+                  >
+                    {savingNC ? 'Guardando...' : '✓ Guardar NC'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
