@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, orderBy, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db, compressImageToBase64 } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
@@ -318,15 +318,20 @@ export default function FacturasList() {
   async function cargarFacturas() {
     setLoading(true);
     try {
+      // Solo orderBy para evitar índice compuesto; filtro de local en cliente
       const q = query(
         collection(db, 'facturas'),
-        where('local', '==', userProfile.local),
         orderBy('creadoEn', 'desc')
       );
       const snap = await getDocs(q);
-      setFacturas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const todas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const localFiltro = userProfile.local;
+      const filtradas = localFiltro === 'Todos'
+        ? todas
+        : todas.filter(f => f.local === localFiltro);
+      setFacturas(filtradas);
     } catch (e) {
-      console.error(e);
+      console.error('Error cargando facturas:', e);
     }
     setLoading(false);
   }

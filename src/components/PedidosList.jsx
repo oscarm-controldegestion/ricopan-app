@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
@@ -18,21 +18,31 @@ export default function PedidosList() {
 
   async function cargarPedidos() {
     setLoading(true);
-    const inicio = Timestamp.fromDate(startOfDay(new Date(fechaFiltro + 'T00:00:00')));
-    const fin = Timestamp.fromDate(endOfDay(new Date(fechaFiltro + 'T23:59:59')));
+    const inicio = startOfDay(new Date(fechaFiltro + 'T00:00:00'));
+    const fin = endOfDay(new Date(fechaFiltro + 'T23:59:59'));
 
     try {
+      // Usamos solo orderBy para evitar índices compuestos en Firestore.
+      // El filtro por local y fecha se aplica en el cliente.
       const q = query(
         collection(db, 'pedidos'),
-        where('local', '==', userProfile.local),
-        where('creadoEn', '>=', inicio),
-        where('creadoEn', '<=', fin),
         orderBy('creadoEn', 'desc')
       );
       const snap = await getDocs(q);
-      setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Filtrar por local del usuario (admin con 'Todos' ve todos los locales)
+      const localFiltro = userProfile.local;
+      const filtrados = todos.filter(p => {
+        const matchLocal = localFiltro === 'Todos' || p.local === localFiltro;
+        const fecha = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
+        const matchFecha = fecha && fecha >= inicio && fecha <= fin;
+        return matchLocal && matchFecha;
+      });
+
+      setPedidos(filtrados);
     } catch (e) {
-      console.error(e);
+      console.error('Error cargando pedidos:', e);
     }
     setLoading(false);
   }

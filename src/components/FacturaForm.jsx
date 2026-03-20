@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { collection, addDoc, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, getDocs, query, orderBy } from 'firebase/firestore';
 import { db, compressImageToBase64 } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -62,15 +62,21 @@ export default function FacturaForm() {
   async function cargarPedidosRecientes() {
     setLoadingPedidos(true);
     try {
-      const hace60dias = Timestamp.fromDate(subDays(new Date(), 60));
+      // Solo orderBy para evitar índice compuesto; filtros de local y fecha en cliente
+      const hace60dias = subDays(new Date(), 60);
       const local = userProfile.local;
-      const q = local && local !== 'Todos'
-        ? query(collection(db, 'pedidos'), where('local', '==', local), where('creadoEn', '>=', hace60dias), orderBy('creadoEn', 'desc'))
-        : query(collection(db, 'pedidos'), where('creadoEn', '>=', hace60dias), orderBy('creadoEn', 'desc'));
+      const q = query(collection(db, 'pedidos'), orderBy('creadoEn', 'desc'));
       const snap = await getDocs(q);
-      setPedidosDisponibles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const filtrados = todos.filter(p => {
+        const matchLocal = !local || local === 'Todos' || p.local === local;
+        const fecha = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
+        const matchFecha = fecha && fecha >= hace60dias;
+        return matchLocal && matchFecha;
+      });
+      setPedidosDisponibles(filtrados);
     } catch (e) {
-      console.error(e);
+      console.error('Error cargando pedidos:', e);
     }
     setLoadingPedidos(false);
   }
