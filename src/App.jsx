@@ -12,6 +12,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import LocalesManager from './components/admin/LocalesManager';
 import UsuariosManager from './components/admin/UsuariosManager';
 import AdminReportes from './components/admin/AdminReportes';
+import ProveedoresManager from './components/admin/ProveedoresManager';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { currentUser, isAdmin } = useAuth();
@@ -75,6 +76,11 @@ function AppRoutes() {
       <Route path="/admin/usuarios" element={
         <ProtectedRoute adminOnly>
           <Layout><UsuariosManager /></Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/proveedores" element={
+        <ProtectedRoute adminOnly>
+          <Layout><ProveedoresManager /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/reportes" element={

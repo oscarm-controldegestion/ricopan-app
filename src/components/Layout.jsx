@@ -14,6 +14,7 @@ const NAV_ADMIN = [
   { path: '/admin', label: 'Inicio', icon: '🏠' },
   { path: '/admin/locales', label: 'Locales', icon: '🏪' },
   { path: '/admin/usuarios', label: 'Usuarios', icon: '👥' },
+  { path: '/admin/proveedores', label: 'Proveedores', icon: '🏭' },
   { path: '/admin/reportes', label: 'Reportes', icon: '📊' },
 ];
 

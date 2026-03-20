@@ -6,19 +6,18 @@ import { useNavigate } from 'react-router-dom';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const PROVEEDORES = [
-  'Coca Cola', 'CCU', 'Ambev', 'Dos en Uno', 'Pan Ideal',
-  'Loncoleche', 'Nestlé', 'Carozzi', 'Watts', 'Soprole', 'Otro',
-];
-
 export default function FacturaForm() {
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
   const fileRef = useRef();
 
+  const [proveedoresLista, setProveedoresLista] = useState([]);
+  const [nuevoProveedor, setNuevoProveedor] = useState('');
+  const [mostrarNuevoProv, setMostrarNuevoProv] = useState(false);
+  const [guardandoProv, setGuardandoProv] = useState(false);
+
   const [form, setForm] = useState({
     proveedor: '',
-    proveedorCustom: '',
     numeroFactura: '',
     monto: '',
     fechaRecepcion: format(new Date(), 'yyyy-MM-dd'),
@@ -45,8 +44,30 @@ export default function FacturaForm() {
     : 0;
 
   useEffect(() => {
+    cargarProveedoresLista();
     if (userProfile?.local) cargarPedidosRecientes();
   }, [userProfile]);
+
+  async function cargarProveedoresLista() {
+    try {
+      const snap = await getDocs(query(collection(db, 'proveedores'), orderBy('nombre', 'asc')));
+      setProveedoresLista(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.activo !== false));
+    } catch (e) { console.error(e); }
+  }
+
+  async function crearProveedorEnFactura() {
+    const nombre = nuevoProveedor.trim();
+    if (!nombre) return;
+    setGuardandoProv(true);
+    try {
+      await addDoc(collection(db, 'proveedores'), { nombre, activo: true, creadoEn: Timestamp.now() });
+      await cargarProveedoresLista();
+      setForm(prev => ({ ...prev, proveedor: nombre }));
+      setNuevoProveedor('');
+      setMostrarNuevoProv(false);
+    } catch (e) { console.error(e); }
+    setGuardandoProv(false);
+  }
 
   // Auto-ajustar estado según saldo pendiente
   useEffect(() => {
@@ -127,7 +148,7 @@ export default function FacturaForm() {
 
       const datosFactura = {
         local: userProfile.local,
-        proveedor: form.proveedor === 'Otro' ? form.proveedorCustom : form.proveedor,
+        proveedor: form.proveedor,
         numeroFactura: form.numeroFactura,
         monto: Number(form.monto),
         fechaRecepcion: form.fechaRecepcion,
@@ -330,26 +351,54 @@ export default function FacturaForm() {
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Proveedor *</label>
             {pedidoSeleccionado ? (
-              <div style={{
-                padding: '11px 14px', border: '2px solid #6ee7b7',
-                borderRadius: '8px', background: '#f0fdf4', fontSize: '15px', color: '#065f46', fontWeight: '600'
-              }}>
+              <div style={{ padding: '11px 14px', border: '2px solid #6ee7b7', borderRadius: '8px', background: '#f0fdf4', fontSize: '15px', color: '#065f46', fontWeight: '600' }}>
                 {pedidoSeleccionado.proveedor}
               </div>
             ) : (
-              <select name="proveedor" value={form.proveedor} onChange={handleChange} required style={inputStyle}>
-                <option value="">Selecciona un proveedor...</option>
-                {PROVEEDORES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <>
+                <select
+                  name="proveedor"
+                  value={mostrarNuevoProv ? '__nuevo__' : form.proveedor}
+                  onChange={e => {
+                    if (e.target.value === '__nuevo__') { setMostrarNuevoProv(true); return; }
+                    setMostrarNuevoProv(false);
+                    setForm(prev => ({ ...prev, proveedor: e.target.value }));
+                  }}
+                  required={!mostrarNuevoProv}
+                  style={inputStyle}
+                >
+                  <option value="">Selecciona un proveedor...</option>
+                  {proveedoresLista.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                  <option value="__nuevo__">➕ Agregar nuevo proveedor...</option>
+                </select>
+
+                {mostrarNuevoProv && (
+                  <div style={{ marginTop: '10px', background: '#fff7ed', border: '2px solid #fed7aa', borderRadius: '10px', padding: '12px' }}>
+                    <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: '700', color: '#92400e' }}>➕ Nuevo proveedor</p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        value={nuevoProveedor}
+                        onChange={e => setNuevoProveedor(e.target.value)}
+                        placeholder="Nombre del proveedor"
+                        autoFocus
+                        style={{ ...inputStyle, flex: 1, padding: '9px 12px', fontSize: '14px' }}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearProveedorEnFactura(); } }}
+                      />
+                      <button type="button" onClick={crearProveedorEnFactura} disabled={guardandoProv || !nuevoProveedor.trim()}
+                        style={{ padding: '9px 14px', background: '#b41e1e', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>
+                        {guardandoProv ? '...' : '✓'}
+                      </button>
+                      <button type="button" onClick={() => { setMostrarNuevoProv(false); setNuevoProveedor(''); }}
+                        style={{ padding: '9px 12px', background: '#f3f4f6', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
-
-          {form.proveedor === 'Otro' && !pedidoSeleccionado && (
-            <div style={{ marginBottom: '16px' }}>
-              <label style={labelStyle}>Nombre del proveedor *</label>
-              <input type="text" name="proveedorCustom" value={form.proveedorCustom} onChange={handleChange} required placeholder="Nombre del proveedor" style={inputStyle} />
-            </div>
-          )}
 
           {/* Número factura y monto */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
