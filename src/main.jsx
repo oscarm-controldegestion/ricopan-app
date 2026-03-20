@@ -8,7 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/ricopan-control-de-compras/sw.js')
+      .register('/ricopan-app/sw.js')
       .then((reg) => {
         // Si hay una nueva versión esperando, activarla de inmediato
         if (reg.waiting) {

@@ -73,7 +73,7 @@ export default function Login() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <img
-            src="/ricopan-control-de-compras/logo.png"
+            src="/ricopan-app/logo.png"
             alt="Ricopan"
             style={{ height: '100px', width: 'auto', objectFit: 'contain', margin: '0 auto 8px', display: 'block' }}
           />
