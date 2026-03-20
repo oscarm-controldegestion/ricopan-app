@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { generarReportePDF } from '../../utils/pdfReport';
@@ -21,7 +21,7 @@ export default function AdminReportes() {
     setLocalesLoaded(true);
   }
 
-  useState(() => { cargarLocales(); }, []);
+  useEffect(() => { cargarLocales(); }, []);
 
   async function generarReporte() {
     setLoading(true);
@@ -36,15 +36,15 @@ export default function AdminReportes() {
           getDocs(query(collection(db, 'pedidos'), where('creadoEn', '>=', inicio), where('creadoEn', '<=', fin))),
           getDocs(query(collection(db, 'facturas'), where('creadoEn', '>=', inicio), where('creadoEn', '<=', fin))),
         ]);
-        pedidos = snapP.docs.map(d => ({ id: d.id, ...d.data() }));
-        facturas = snapF.docs.map(d => ({ id: d.id, ...d.data() }));
+        pedidos = snapP.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.eliminado);
+        facturas = snapF.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => !f.eliminado);
       } else {
         const [snapP, snapF] = await Promise.all([
           getDocs(query(collection(db, 'pedidos'), where('local', '==', localSel), where('creadoEn', '>=', inicio), where('creadoEn', '<=', fin))),
           getDocs(query(collection(db, 'facturas'), where('local', '==', localSel), where('creadoEn', '>=', inicio), where('creadoEn', '<=', fin))),
         ]);
-        pedidos = snapP.docs.map(d => ({ id: d.id, ...d.data() }));
-        facturas = snapF.docs.map(d => ({ id: d.id, ...d.data() }));
+        pedidos = snapP.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.eliminado);
+        facturas = snapF.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => !f.eliminado);
       }
 
       setDatos({ pedidos, facturas });
