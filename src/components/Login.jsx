@@ -47,6 +47,20 @@ export default function Login() {
       justifyContent: 'center',
       padding: '20px',
     }}>
+      {/* Mensaje motivador */}
+      <div style={{ textAlign: 'center', marginBottom: '24px', padding: '0 8px' }}>
+        <p style={{
+          color: 'rgba(255,255,255,0.95)', fontSize: '16px', fontWeight: '600',
+          lineHeight: '1.6', margin: 0, textShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        }}>
+          🌟 Juntos estamos construyendo una empresa más fuerte.<br />
+          <span style={{ fontSize: '14px', fontWeight: '400', opacity: 0.9 }}>
+            Cada pedido registrado, cada factura controlada,<br />
+            es un paso hacia el crecimiento de todos.
+          </span>
+        </p>
+      </div>
+
       <div style={{
         background: 'white',
         borderRadius: '16px',
