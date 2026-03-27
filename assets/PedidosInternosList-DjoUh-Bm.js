@@ -1,4 +1,4 @@
-import{n as e}from"./chunk-B3K2TuZy.js";import{E as t,_ as n,a as r,d as i,g as a,h as o,l as s,p as c,t as l,u}from"./jsx-runtime-CxrUBdyM.js";import{n as d,t as f}from"./index-DzvQXWkO.js";import{t as p}from"./format-z5j7TSo-.js";import{t as m}from"./es-BngBFbc6.js";var h=e(t(),1),g=l();function _(e){let t=(e.items&&e.items.length>0?e.items:[{descripcion:e.descripcion||``,cantidad:e.cantidad||``,unidad:e.unidad||``}]).map((e,t)=>`
+import{n as e}from"./chunk-B3K2TuZy.js";import{E as t,_ as n,a as r,d as i,g as a,h as o,l as s,p as c,t as l,u}from"./jsx-runtime-CxrUBdyM.js";import{n as d,t as f}from"./index-B6W41iGa.js";import{t as p}from"./format-z5j7TSo-.js";import{t as m}from"./es-BngBFbc6.js";var h=e(t(),1),g=l();function _(e){let t=(e.items&&e.items.length>0?e.items:[{descripcion:e.descripcion||``,cantidad:e.cantidad||``,unidad:e.unidad||``}]).map((e,t)=>`
     <tr style="background:${t%2==0?`#fff`:`#f9fafb`}">
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${t+1}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${e.descripcion}</td>
